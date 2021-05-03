@@ -24,7 +24,7 @@ def grad(f, x, constants=[]):
     return ret
 
 def jacobian(f, x, constants=[]):
-    sz = shape(f)
+    sz = shape(f)[0]
     return tt.stacklists([grad(f[i], x) for i in range(sz)])
     ret = th.gradient.jacobian(f, x, consider_constant=constants)
     if isinstance(ret, list):
@@ -50,7 +50,8 @@ class NestedMaximizer(object):
         self.sz2 = [(0 if i==0 else self.sz2[i-1], self.sz2[i]) for i in range(len(self.sz2))]
         self.df1 = grad(self.f1, vs1)
         self.new_vs1 = [tt.vector() for v in self.vs1]
-        self.func1 = th.function(self.new_vs1, [-self.f1, -self.df1], givens=zip(self.vs1, self.new_vs1))
+        #FIXME: changed on_unused_input from None.
+        self.func1 = th.function(self.new_vs1, [-self.f1, -self.df1], givens=zip(self.vs1, self.new_vs1), on_unused_input="ignore")
         def f1_and_df1(x0):
             return self.func1(*[x0[a:b] for a, b in self.sz1])
         self.f1_and_df1 = f1_and_df1
@@ -116,10 +117,11 @@ class Maximizer(object):
         else:
             self.df = g
         self.new_vs = [tt.vector() for v in self.vs]
-        self.func = th.function(self.new_vs, [-self.f, -self.df], givens=zip(self.vs, self.new_vs))
+        # FIXME: changed on_unused_input from None.
+        self.func = th.function(self.new_vs, [-self.f, -self.df], givens=zip(self.vs, self.new_vs), on_unused_input="ignore")
         def f_and_df(x0):
             if self.debug:
-                print x0
+                print(x0)
             s = None
             N = 0
             for _ in self.gen():
@@ -162,7 +164,8 @@ class Maximizer(object):
         return {v: opt[a:b] for v, (a, b) in zip(self.vs, self.sz)}
     def maximize(self, *args, **vargs):
         result = self.argmax(*args, **vargs)
-        for v, res in result.iteritems():
+        #FIXME: chaned it from result.iteritems() which is Python 2 format
+        for v, res in result.items():
             v.set_value(res)
 
 if __name__ == '__main__':
@@ -176,7 +179,7 @@ if __name__ == '__main__':
     y.set_value([10.])
     optimizer = Maximizer(f, [x], gen=gen, method='CG')
     optimizer.maximize()
-    print x.get_value()
+    print(x.get_value())
     quit()
     x1 = vector(2)
     x2 = vector(1)
@@ -184,5 +187,5 @@ if __name__ == '__main__':
     f2 = -((x1[0]-2.)**2+(x1[1]-4.)**2)-(x2[0]-6.)**2
     optimizer = NestedMaximizer(f1, [x1], f2, [x2])
     optimizer.maximize(bounds=[(0., 10.)])
-    print x2.get_value()
-    print x1.get_value()
+    print(x2.get_value())
+    print(x1.get_value())
